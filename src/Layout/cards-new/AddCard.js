@@ -1,68 +1,58 @@
-import React, { useEffect, useState } from "react";
-import { Link, useParams, useHistory } from "react-router-dom";
-import { readDeck, createCard } from "../utils/api/index.js";
-import CardForm from "../Components/CardForm.js";
+import React, {useEffect, useState} from 'react'
+import {useParams} from 'react-router-dom';
+import Card from './Card';
+import AddCardNav from './AddCardNav';
+import AddCardConfirmButton from './AddCardConfirmButton';
+import {createCard, readDeck} from '../../utils/api/index';
 
-function AddCard() {
-  /* Use the readDeck() function from src/utils/api/index.js
-    to load the deck that you're adding the card to. 
-    Use the :deckId to select the deck. */
-  const { deckId } = useParams();
-  const [deck, setDeck] = useState({});
-  const [card, setCard] = useState({});
-  const history = useHistory();
+export default function AddCard() {
+    const [deck, setDeck] = useState({});
+    const [front, setFront] = useState('');
+    const [back, setBack] = useState('');
+    const {deckId} = useParams()
 
-  useEffect(() => {
-    readDeck(deckId).then(setDeck);
-  }, [deckId]);
+    //Event handlers
+    function handleCardFrontChange(event) {
+        setFront(event.target.value)
+    }
+    function handleCardBackChange(event) {
+        setBack(event.target.value)
+    }
 
-  if (!deck.id) return null;
+    useEffect(() => {
+        //API call for decks, with abort controller, and deckId param
+        async function fetchDecks() {
+            const abortController = new AbortController();
+            const response = await readDeck(deckId, abortController.signal)
+            setDeck(response)
+        }
+        fetchDecks();
+    }, [deckId])
 
-  const handleChange = ({ target }) => {
-    const value = target.value;
-    setCard({
-      ...card,
-      [target.name]: value,
-    });
-  };
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    createCard(deckId, card);
-    history.go(`/decks/${deckId}/cards/new`);
-  };
+    //saving added cards
+    function saveCard(event) {
+        event.preventDefault();
+        createCard(deckId, {sideA: front, sideB: back})
+        //cleaning up after save
+        setFront("")
+        setBack("")
+    }
 
-  function Breadcrumb() {
-    return (
-      <nav aria-label="breadcrumb" style={{ padding: "5px 10px" }}>
-        <ol className="breadcrumb">
-          <li className="breadcrumb-item">
-            <Link to="/">Home</Link>
-          </li>
-          <li className="breadcrumb-item">
-            <Link to={`decks/${deck.id}`}>{deck.name}</Link>
-          </li>
-          <li className="breadcrumb-item">Add Card</li>
-        </ol>
-      </nav>
-    );
-  }
-
-  return (
-    <>
-      <div>
-        <Breadcrumb />
-      </div>
-      <div>
-        <h1 className="ml-1">{deck.name}: Add Card</h1>
-        <CardForm
-          deck={deck}
-          card={card}
-          handleChange={handleChange}
-          handleSubmit={handleSubmit}
-        />
-      </div>
-    </>
-  );
+    //if deck is properly fetched save a new card form, otherwise returns a Loading message
+    if(deck.name) {
+        return (
+            <>
+                <AddCardNav deckName={deck.name} deckId={deckId} />
+                <h3>{deck.name}: Add Card</h3>
+                <form onSubmit={saveCard}>
+                    <Card front={front} handleCardFrontChange={handleCardFrontChange} back={back} handleCardBackChange={handleCardBackChange} />
+                    <AddCardConfirmButton deckId={deckId} />
+                    <button className="btn btn-success" type="submit">
+                        <i className="bi bi-cloud-upload-fill"></i>Save  
+                    </button> 
+                </form>
+            </>
+        )
+    }
+    return "Loading..."
 }
-
-export default AddCard;
